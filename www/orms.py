@@ -22,11 +22,11 @@ async def create_pool(loop, **kw):
         minsize = kw.get('minsize', 1),
         loop = loop
     )
+    log('create database connection pool >> %s' % __pool)
 
 #查询
 async def select(sql, args, size=None):
     log(sql, args)
-    global __pool
     async with __pool.get() as conn:
         async with conn.cursor(aiomysql.DictCursor) as cur:
             await cur.execute(sql.replace('?','%s'), args or ())
@@ -38,7 +38,7 @@ async def select(sql, args, size=None):
             return rs
 
 #执行Insert Delete Update
-async def execute(sql, args):
+async def execute(sql, args, autocommit=True):
     log(sql, args)
     async with __pool.get() as conn:
         try:
@@ -46,7 +46,11 @@ async def execute(sql, args):
             await cur.execute(sql.replace('?', '%s'), args)
             affected = cur.rowcount
             await cur.close()
+            if not autocommit:
+                await conn.commit()
         except BaseException as ex:
+            if not autocommit:
+                await conn.rolback()
             raise
         return affected
 
@@ -173,7 +177,7 @@ class Model(dict, metaclass=ModelMetaClass):
         ' find number by select and where. '
         sql = ['select %s _num_ from `%s`' % (selectField, cls.__table__)]
         if where:
-            sql.append('where')
+            sql.append('where ')
             sql.append(where)
         rs = await select(' '.join(sql), args, 1)
         if len(rs) == 0:
@@ -195,6 +199,7 @@ class Model(dict, metaclass=ModelMetaClass):
         rows = await execute(self.__insert__, args)
         if rows != 1:
             logging.warning('failed to insert record: affected rows: %s' % rows)
+        return rows
 
     async def update(self):
         args = list(map(self.getValue, self.__fields__))

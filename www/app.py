@@ -5,13 +5,15 @@ __author__ = 'Dman'
 
 import logging; logging.basicConfig(level=logging.INFO)
 
-import asyncio, os , json, time
+import asyncio, os , json, time, hashlib
 from datetime import datetime
 from aiohttp import web
 from jinja2 import Environment, FileSystemLoader
 
 import orms
-from coroweb import add_routes, add_static
+from www.models import *
+from www.coroweb import add_routes, add_static
+from www.handlers import COOKIE_NAME, cookie2user
 
 def init_jinja2(app, **kw):
     logging.info('init jinja2...')
@@ -51,6 +53,7 @@ async def data_factory(app, handler):
                 logging.info('request form: %s' % str(request.__data__))
         return (await handler(request))
     return parse_data
+
 async def response_factory(app, handler):
     async def response(request):
         logging.info('response handler...')
@@ -74,6 +77,7 @@ async def response_factory(app, handler):
                 resp.content_type = 'application/json;charset=utf-8'
                 return resp
             else:
+                r['curUser'] = request.curUser
                 resp = web.Response(body=app['__templating__'].get_template(template).render(**r).encode('utf-8'))
                 resp.content_type = 'text/html;charset=utf-8'
                 return resp
@@ -88,6 +92,22 @@ async def response_factory(app, handler):
         resp.content_type = 'text/plain;charset=utf-8'
         return resp
     return response
+
+async def auth_factory(app, handler):
+    async def auth(request):
+        logging.info('check user: %s %s' % (request.method, request.path))
+        request.curUser = None
+        cookieStr = request.cookies.get(COOKIE_NAME)
+        if cookieStr:
+            user = await cookie2user(cookieStr)
+            if user:
+                logging.info('set current user: %s' % user.email)
+                request.curUser = user
+        if request.path.startswith('/manage/') and (request.curUser is None or not request.curUser.admin):
+            return web.HTTPFound('/signin')
+        return (await handler(request))
+    return auth
+
 
 def datetime_filter(t):
     delta = int(time.time() - t)
@@ -106,7 +126,7 @@ async def init(loop):
     await orms.create_pool(loop=loop, user='root', pwd='abc123', db='apw', host='heli.dman.me')
     app = web.Application(
       loop = loop,
-      middlewares = [logger_factory, response_factory]
+      middlewares = [logger_factory, auth_factory, response_factory]
     )
     init_jinja2(app, filters=dict(datetime=datetime_filter))
     add_routes(app, 'handlers')

@@ -3,9 +3,9 @@
 '''
 Configuration
 '''
-__author__ = 'Dman'
+from www import config_default
 
-import config_default
+__author__ = 'Dman'
 
 class Dict(dict):
     '''
