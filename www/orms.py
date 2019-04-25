@@ -7,11 +7,6 @@ def log(sql, args=()):
     #print('log-: %s args= %s' % (sql,args))
     logging.info('SQL: %s args=%s' % (sql,args))
     pass
-def create_args_string(num):
-    L = []
-    for n in range(num):
-        L.append('?')
-    return ', '.join(L)
 async def create_pool(loop, **kw):
     log('create database connection pool...')
     global __pool
@@ -39,7 +34,7 @@ async def select(sql, args, size=None):
                 rs = await cur.fetchmany(size)
             else:
                 rs = await cur.fetchall()
-            log('rows returned: %s', len(rs))
+            log('rows returned: %s' % len(rs))
             return rs
 
 #执行Insert Delete Update
@@ -55,6 +50,11 @@ async def execute(sql, args):
             raise
         return affected
 
+def create_args_string(num):
+    L = []
+    for n in range(num):
+        L.append('?')
+    return ', '.join(L)
 
 class Field(object):
     def __init__(self, name, column_type, primary_key, default):
@@ -94,7 +94,7 @@ class ModelMetaClass(type):
         primaryKey = None
         for k,v in attrs.items():
             if (isinstance(v, Field)):
-                log('  found mapping : %s ==> %s' % (k,v))
+                #log('  found mapping : %s ==> %s' % (k,v))
                 mappings[k]= v
                 if v.primary_key:
                     if primaryKey:
