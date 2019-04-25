@@ -49,3 +49,5 @@ try:
     configs = merge(configs, config_override.configs)
 except ImportError:
     pass
+
+configs = toDict(configs)

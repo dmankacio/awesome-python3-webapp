@@ -11,15 +11,15 @@ from apis import APIError
 def get(path):
     '''
     Define decorator @get('/path')
-    :param path:
-    :return:
     '''
+    logging.info('get.path: %s' % path)
     def decorator(func):
+        logging.info('get.decorator.func: %s' % func)
         @functools.wraps(func)
         def wrapper(*args, **kw):
             return func(*args, **kw)
         wrapper.__method__ = 'GET'
-        wrapper.__path__ = path
+        wrapper.__route__ = path
         return wrapper
     return decorator
 
@@ -47,7 +47,7 @@ def get_required_kw_args(fn):
 def get_named_kw_args(fn):
     args = []
     params = inspect.signature(fn).parameters
-    for name,param in params:
+    for name,param in params.items():
         if param.kind == inspect.Parameter.KEYWORD_ONLY:
             args.append(name)
     return tuple(args)

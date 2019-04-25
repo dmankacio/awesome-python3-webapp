@@ -4,8 +4,9 @@
 import asyncio, mysql, logging, aiomysql
 
 def log(sql, args=()):
-    print('log-: %s args= %s' % (sql,args))
+    #print('log-: %s args= %s' % (sql,args))
     logging.info('SQL: %s args=%s' % (sql,args))
+    pass
 def create_args_string(num):
     L = []
     for n in range(num):
@@ -111,7 +112,7 @@ class ModelMetaClass(type):
         attrs['__primary_key__'] = primaryKey  # 主键属性名
         attrs['__fields__'] = fields # 除主键外的属性名
         # 构造默认的SELECT, INSERT, UPDATE和DELETE语句:
-        attrs['__select__'] = 'select `%s`,`%s` from `%s` ' % (primaryKey, ','.join(escaped_fields), tableName)
+        attrs['__select__'] = 'select `%s`,%s from `%s` ' % (primaryKey, ','.join(escaped_fields), tableName)
         attrs['__insert__'] = 'insert into `%s` (%s, `%s`) values(%s)' % (tableName, ','.join(escaped_fields), primaryKey, create_args_string(len(escaped_fields) + 1))
         attrs['__update__'] = 'update `%s` set %s where `%s`=?' % (tableName, ', '.join(map(lambda f: '`%s`=?' % (mappings.get(f).name or f), fields)), primaryKey)
         attrs['__delete__'] = 'delete from `%s` where `%s`=?' % (tableName, primaryKey)
@@ -143,6 +144,7 @@ class Model(dict, metaclass=ModelMetaClass):
     async def findAll(cls, where=None, args=None, **kw):
         ' find objects by where clause. '
         sql = [cls.__select__]
+        log('---- %s' % sql)
         if where:
             sql.append('where')
             sql.append(where)
