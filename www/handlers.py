@@ -14,14 +14,7 @@ from www.config import configs
 COOKIE_NAME = 'dk_apw_auth'
 _COOKIE_KEY = configs.session.secret
 
-async def user2cookie(user, maxAge):
-    '''
-    Generate cookie str by user.
-    '''
-    expires = str(int(time.time() + maxAge))
-    s = '%s-%s-%s-%s' % (user.id, user.passwd, expires, _COOKIE_KEY)
-    L = [user.id, expires, hashlib.sha1(s.encode('utf-8')).hexdigest()]
-    return '-'.join(L)
+
 
 async def cookie2user(cookieStr):
     '''
@@ -127,19 +120,19 @@ async def user_signin(request):
 @post('/api/auth')
 async def auth(*, email, passwd):
     if not email or not _RE_EMAIL.match(email):
-        raise APIValueError('email', 'Invalid email')
+        raise APIValueError(field='email',  message='Invalid email')
     if not passwd or not _RE_SHA1.match(passwd):
-        raise APIValueError('passwd', 'Invalid password')
+        raise APIValueError(field='passwd',  message='Invalid password')
     users = await User.findAll('email=?', [email])
     if len(users) <= 0:
-        raise APIValueError('email', 'Email not exist.')
+        raise APIValueError(field='email',  message='Email not exist.')
     user = users[0]
     sha1 = hashlib.sha1()
     sha1.update(user.id.encode('utf-8'))
     sha1.update(b':')
     sha1.update(passwd.encode('utf-8'))
     if user.passwd != sha1.hexdigest():
-        raise APIValueError('passwd', 'Invalid password')
+        raise APIValueError(field='passwd',  message='Invalid password')
     # authenticate ok, set cookie:
     r = web.Response()
     r.set_cookie(COOKIE_NAME, user2cookie(user, 86400), max_age=86400, httponly=True)
@@ -174,9 +167,9 @@ async def api_register_user(*, email, name, passwd):
     if not name or not name.strip():
         raise APIValueError(field='name', message='invalid name')
     if not email or not name.strip() or not _RE_EMAIL.match(email):
-        raise APIValueError('email')
+        raise APIValueError(field='email')
     if not passwd or not _RE_SHA1.match(passwd):
-        raise APIValueError('passwd')
+        raise APIValueError(field='passwd')
     usersCnt = await User.findNumber('count(0)', where='email=?', args=[email])
     if usersCnt > 0:
         raise APIError('register failed', 'email', 'email is already used.')
@@ -195,3 +188,54 @@ async def api_register_user(*, email, name, passwd):
     r.body = json.dumps(user, ensure_ascii=False).encode('utf-8')
     return r
 
+# @get('/blogs')
+# async def blog_list(request):
+#     blogs = await Blog.findAll()
+#     return {
+#         '__template__': 'blogs.html',
+#         blogs: blogs
+#     }
+
+@get('/blog')
+async def blog_edit(request):
+    return {
+        '__template__': 'manage_blog_edit.html',
+        'action': '/api/blog/edit'
+    }
+
+@post('/api/blog/edit')
+async def api_blog_edit(request, *, name, summary, content, id=None):
+    #checkAdmin(request)
+    if not name or not name.strip():
+        raise APIValueError(field='name', message='name is empty.')
+    if not summary or not summary.strip():
+        raise APIValueError(field='summary',  message='摘要不能为空.')
+    if not content or not content.strip():
+        raise APIValueError(field='content',  message='正文不能为空.')
+    u = request.curUser
+    #id = None
+    if id:
+        blog = await Blog.find(id)
+        if blog:
+            blog.name=name.strip()
+            blog.summary=summary.strip()
+            blog.content=content.strip()
+            await blog.save()
+            return blog
+        raise APIValueError(field='id',  message='找不到对应日志。')
+    else:
+        newBlog = Blog(id=next_id(), user_id=u.id, user_name=u.name, user_image=u.image, name=name.strip(), summary=summary.strip(), content=content.strip())
+        await newBlog.save()
+        return newBlog
+
+@get('/api/blog/{id}')
+async def api_blog_get(request, *, id):
+    if not id or not id.strip():
+        raise APIValueError(field='id',  message='ID不能为空.')
+    u = request.curUser
+    blog = await Blog.find(id)
+
+    return blog
+
+async def checkAdmin():
+    pass
