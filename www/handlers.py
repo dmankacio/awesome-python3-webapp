@@ -188,15 +188,14 @@ async def api_register_user(*, email, name, passwd):
     r.body = json.dumps(user, ensure_ascii=False).encode('utf-8')
     return r
 
-# @get('/blogs')
-# async def blog_list(request):
-#     blogs = await Blog.findAll()
-#     return {
-#         '__template__': 'blogs.html',
-#         blogs: blogs
-#     }
+@get('/blog/{id}')
+async def blog_get(request, *, id):
+    return {
+        '__template__': 'blog_dtl.html',
+        'id': id
+    }
 
-@get('/blog')
+@get('/manage/blog/create')
 async def blog_edit(request):
     return {
         '__template__': 'manage_blog_edit.html',
@@ -237,5 +236,33 @@ async def api_blog_get(request, *, id):
 
     return blog
 
-async def checkAdmin():
-    pass
+async def checkAdmin(u):
+    return u.amdin > 0
+
+
+@get('/manage/blogs')
+async def manage_blogs(*, page='1'):
+    return {
+        '__template__': 'blogs.html',
+        'page_index': get_page_index(page)
+    }
+
+@get('/api/blogs')
+async def api_blog_list(*, page='1'):
+    pageIndex = get_page_index(page)
+    num = await Blog.findNumber('count(0)')
+    p = Page(num, pageIndex)
+    if(num <= 0):
+        return dict(page=p, blogs=())
+    blogs = await Blog.findAll(orderBy='created_at desc', limit=(p.offset, p.limit))
+    return dict(page=p, blogs=blogs)
+
+@post('/api/blog/{id}/delete')
+async def api_blog_get(request, *, id):
+    if not id or not id.strip():
+        raise APIValueError(field='id',  message='ID不能为空.')
+    u = request.curUser
+    if checkAdmin(u):
+        blog = await Blog.find(id)
+        blog.remove()
+    return 1

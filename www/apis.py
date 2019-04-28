@@ -7,6 +7,29 @@ Json API definition
 '''
 import json, inspect, logging, functools
 
+class Page(object):
+    '''
+    Page object for display pages.
+    '''
+    def __init__(self, itemCount, pageSize=10, pageIndex=1):
+        self.itemCount = itemCount
+        self.pageSize = pageSize
+        self.pageCnt = itemCount // pageSize + (1 if itemCount % pageSize > 0 else 0)
+        self.pageIndex = pageIndex
+        if (itemCount == 0) or (pageIndex > self.pageCnt):
+            self.offset = 0
+            self.limit = 0
+            self.pageIndex = 1
+        else:
+            self.pageIndex = pageIndex
+            self.offset = self.pageSize * (pageIndex - 1)
+            self.limit = self.pageSize
+        self.hasNext = self.pageSize < self.pageCnt
+        self.hasPre = self.pageIndex > 2
+    def __str__(self):
+        return 'item_count: %s, page_count: %s, page_index: %s, page_size: %s, offset: %s, limit: %s' % (self.item_count, self.page_count, self.page_index, self.page_size, self.offset, self.limit)
+    __repr__ = __str__
+
 class APIError(Exception):
     '''
     the base APIError which contains error(required), data(optional) and message(optional).
@@ -37,4 +60,6 @@ class APIPermissionError(APIError):
     '''
     def __init__(self, field, message=''):
         super(APIPermissionError, self).__init__(self, field, message)
+
+
 
